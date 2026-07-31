@@ -12,6 +12,12 @@ const protect = async (req, res, next) => {
       if (!req.user) {
         return res.status(401).json({ message: 'User not found' });
       }
+      // Backfill a UID for accounts created before the friend-search feature
+      // existed, so every existing user becomes searchable without a migration.
+      if (!req.user.uid) {
+        req.user.uid = await User.generateUniqueUid();
+        await req.user.save();
+      }
       return next();
     } catch (err) {
       return res.status(401).json({ message: 'Not authorized, token invalid' });

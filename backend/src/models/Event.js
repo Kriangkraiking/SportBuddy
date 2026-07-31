@@ -14,7 +14,11 @@ const eventSchema = new mongoose.Schema(
       coordinates: { type: [Number], default: [0, 0] },
       address: { type: String, default: '' },
     },
-    skillLevel: { type: String, enum: ['all', 'beginner', 'intermediate', 'advanced'], default: 'all' },
+    skillLevel: {
+      type: String,
+      enum: ['all', 'beginner', 'intermediate', 'advanced', 'pro'],
+      default: 'all',
+    },
     status: { type: String, enum: ['open', 'full', 'cancelled', 'completed'], default: 'open' },
   },
   { timestamps: true }

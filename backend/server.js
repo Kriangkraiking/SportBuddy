@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./src/config/db');
@@ -8,11 +9,15 @@ const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const eventRoutes = require('./src/routes/eventRoutes');
 const buddyRoutes = require('./src/routes/buddyRoutes');
+const matchRoutes = require('./src/routes/matchRoutes');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded files (profile pictures, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -23,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/buddies', buddyRoutes);
+app.use('/api/match', matchRoutes);
 
 app.use(errorHandler);
 

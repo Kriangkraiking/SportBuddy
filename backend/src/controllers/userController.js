@@ -18,6 +18,7 @@ const updateProfile = async (req, res, next) => {
         type: 'Point',
         coordinates: location.coordinates || [0, 0],
         city: location.city || '',
+        address: location.address || '',
       };
     }
 
@@ -40,4 +41,24 @@ const getUserById = async (req, res, next) => {
   }
 };
 
-module.exports = { updateProfile, getUserById };
+// @desc  Upload / replace the current user's profile picture
+// @route POST /api/users/me/avatar
+const uploadAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.avatar = `/uploads/avatars/${req.file.filename}`;
+    await user.save();
+
+    res.json({ user: user.toPublicJSON() });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { updateProfile, getUserById, uploadAvatar };
