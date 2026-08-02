@@ -1,0 +1,50 @@
+@AGENTS.md
+
+# CLAUDE.md — SportBuddy
+
+ไฟล์นี้เสริมจาก `AGENTS.md` (โครงสร้าง/กฎของโปรเจกต์) เฉพาะส่วนที่เป็น**พฤติกรรมของ Claude**เวลาทำงานในโปรเจกต์นี้
+
+## ความแม่นยำ (Precision)
+
+- ห้ามมโนชื่อไฟล์ ฟังก์ชัน หรือ endpoint ที่ไม่ได้เช็คจริง — ถ้าไม่แน่ใจว่าไฟล์ไหนมี field/ฟังก์ชันอะไร ให้ `Read` ก่อนแก้เสมอ (โดยเฉพาะ Mongoose schema กับ React Navigation route names ที่พิมพ์ผิดแล้ว fail แบบเงียบ)
+- คำสั่งจากผู้ใช้ที่กำกวม (เช่น "เพิ่มระบบแจ้งเตือน" โดยไม่บอกว่า trigger ไหนบ้าง) ให้อนุมานจาก pattern ที่มีอยู่แล้วในโปรเจกต์ก่อน (ดูว่า feature คล้ายๆ กันเคยทำยังไง) แทนที่จะเดาแบบสุ่ม ถ้ายังกำกวมจริงๆ ค่อยถามผู้ใช้
+- ทุก endpoint ใหม่ต้องตอบ error message เป็นภาษาไทยให้สอดคล้องกับของเดิม (ดู pattern ใน `buddyController.js`, `messageController.js`)
+
+## กฎบังคับ: Tag การแก้ไขทุกครั้ง
+
+**เมื่อแก้โค้ด (ไม่ว่าจะเพิ่ม/แก้/ลบ) ต้องใส่ comment tag กำกับไว้ในโค้ดเสมอ** ว่าเปลี่ยนอะไรและทำไม ใช้รูปแบบนี้:
+
+```js
+// ➕ เพิ่ม: <อธิบายสั้นๆ ว่าเพิ่มอะไร>
+// ✏️ แก้ไข: <อธิบายว่าทำไมต้องแก้ตรงนี้ / แก้บั๊กอะไร>
+```
+
+และเวลาสรุปให้ผู้ใช้ในแชท ต้องบอกด้วยว่า **แก้ไฟล์ไหน บรรทัด/ฟังก์ชันไหน แก้ยังไง** ไม่ใช่แค่บอกผลลัพธ์ปลายทาง (ผู้ใช้ต้องตามอ่าน diff ได้ทันทีว่าเปลี่ยนตรงไหนบ้างโดยไม่ต้องเปิดไฟล์เทียบเอง)
+
+## Compound Engineering — บทเรียนจากความผิดพลาดที่เกิดขึ้นจริงในโปรเจกต์นี้
+
+กฎข้อนี้สำคัญที่สุด: **ทุกครั้งที่ทำผิดแล้วต้องแก้ ให้เพิ่มมันเป็นกฎในไฟล์นี้ทันที** ห้ามปล่อยให้ผิดซ้ำ รายการด้านล่างคือของจริงที่เคยเกิดในโปรเจกต์นี้:
+
+1. **Node v24 พัง Expo tooling** — `babel-preset-expo` resolve เวอร์ชันไม่ได้ (`ETARGET`) เพราะ Node เร็วเกินกว่า Expo SDK รองรับ แก้โดย pin `nvm use 20` สำหรับ mobile เท่านั้น (ดู AGENTS.md ข้อ 2)
+2. **`errorHandler.js` เช็ค status code ผิด** — เดิมใช้ `res.statusCode !== 200 ? res.statusCode : 500` ทำให้ error ที่โยนหลัง `res.status(201)` (เช่น `jwt.sign` พังเพราะ `JWT_SECRET` undefined) ตอบกลับเป็น 201 แทนที่จะเป็น error จริง ต้องใช้ `err.statusCode || (res.statusCode >= 400 ? res.statusCode : 500)` เท่านั้น
+3. **Windows/Notepad ซ่อนนามสกุลไฟล์** — ผู้ใช้ "บันทึกเป็น .env" แต่จริงๆ ได้ `.env.txt` ทำให้ `JWT_SECRET` เป็น undefined ทั้งที่ไฟล์ดูเหมือนมีอยู่ ถ้าเจอ error แนว "secretOrPrivateKey must have a value" ให้เช็คชื่อไฟล์จริงก่อนเช็คเนื้อหา
+4. **Sport ต้องเป็นค่าจาก `SPORTS` constant เท่านั้น** — เคยให้กรอก sport แบบ free-text แล้ว filter ไม่เจอ เพราะตัวสะกดไม่ตรงกัน (เช่น "แบดมินตัน" vs "Badminton") ทุกจุดที่เลือก/แสดง/กรองกีฬาต้องอ้างอิง `mobile/src/constants/options.js` เท่านั้น
+5. **Babel preset resolution ต้องรันจาก cwd = `mobile/`** — สคริปต์ตรวจ syntax (`babel.transformFileSync` ผ่าน `@babel/core`) จะหา `@babel/preset-react` ไม่เจอถ้ารันจาก `/tmp` หรือที่อื่น แม้ package จะติดตั้งอยู่จริงก็ตาม ต้อง `cd mobile` ก่อนรันทุกครั้ง
+6. **Background process ใน sandbox ไม่รอดข้าม tool call** — bash tool call แต่ละครั้งแยก process กันจริงๆ (unshare-pid) ห้ามพึ่งพา `nohup`/background job ข้ามการเรียกเครื่องมือ ให้รันงานที่ต้องรอผลแบบ synchronous ภายใน call เดียว
+7. **`mongoose` require ครั้งแรกในเชลล์ใหม่อาจใช้เวลา ~20 วินาที** (cold filesystem cache บน mounted volume) — อย่าตีความว่า require ค้าง/พังทันทีที่ timeout สั้นๆ (เช่น 5-15s) ให้ลองใหม่ด้วย timeout ที่นานขึ้นก่อนสรุปว่ามีบั๊กจริง
+8. **`.gitignore` ของ backend ต้องมี `uploads/`** — ไฟล์ avatar ที่ user อัปโหลดไม่ควรเข้า git
+
+> เพิ่มรายการใหม่ต่อท้ายลิสต์นี้ทุกครั้งที่เจอปัญหาเดิมซ้ำ หรือแก้บั๊กที่ไม่ควรเกิดซ้ำอีก
+
+## คำสั่งที่ Claude ใช้ตรวจสอบตัวเองได้ (ดูรายละเอียดเต็มใน AGENTS.md หัวข้อ Workflow)
+
+```bash
+# Backend — หลังแก้ไฟล์
+node --check <ไฟล์ที่แก้>
+JWT_SECRET=test node -e "require('./src/...')"
+
+# Mobile — หลังแก้ไฟล์ (ต้องรันจาก cwd = mobile/)
+cd mobile && node <path-to-syntax-check-script>.js
+```
+
+ยังไม่มี `npm test` / `npm run lint` จริงในโปรเจกต์ — ถ้าผู้ใช้ขอให้เพิ่ม ให้เพิ่ม script ใน `package.json` ของฝั่งที่เกี่ยวข้อง แล้วอัปเดตส่วนนี้ด้วย

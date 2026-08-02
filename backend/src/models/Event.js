@@ -20,6 +20,9 @@ const eventSchema = new mongoose.Schema(
       default: 'all',
     },
     status: { type: String, enum: ['open', 'full', 'cancelled', 'completed'], default: 'open' },
+    // Set once the "starting soon" reminder notification has gone out, so
+    // the reminder job doesn't notify people twice for the same event.
+    reminderSent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

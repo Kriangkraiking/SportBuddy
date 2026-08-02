@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const BuddyRequest = require('../models/BuddyRequest');
+const { notifyFriendRequest, notifyFriendAccepted } = require('../utils/notification');
 
 // @desc  Find nearby buddies, optionally filtered by sport
 // @route GET /api/buddies/search?sport=Running&lng=100.5&lat=13.7&maxDistanceKm=10
@@ -48,6 +49,8 @@ const sendRequest = async (req, res, next) => {
       message,
     });
 
+    notifyFriendRequest(to, req.user);
+
     res.status(201).json({ request });
   } catch (err) {
     if (err.code === 11000) {
@@ -95,6 +98,11 @@ const respondToRequest = async (req, res, next) => {
 
     request.status = status;
     await request.save();
+
+    if (status === 'accepted') {
+      notifyFriendAccepted(request.from, req.user);
+    }
+
     res.json({ request });
   } catch (err) {
     next(err);

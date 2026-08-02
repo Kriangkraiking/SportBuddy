@@ -10,6 +10,8 @@ const userRoutes = require('./src/routes/userRoutes');
 const eventRoutes = require('./src/routes/eventRoutes');
 const buddyRoutes = require('./src/routes/buddyRoutes');
 const matchRoutes = require('./src/routes/matchRoutes');
+const notificationRoutes = require('./src/routes/notificationRoutes');
+const { startEventReminderJob } = require('./src/jobs/eventReminderJob');
 
 const app = express();
 
@@ -29,6 +31,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/buddies', buddyRoutes);
 app.use('/api/match', matchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler);
 
@@ -38,6 +41,7 @@ connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`SportBuddy API running on port ${PORT}`);
   });
+  startEventReminderJob();
 });
 
 module.exports = app;

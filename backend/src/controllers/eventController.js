@@ -1,4 +1,5 @@
 const Event = require('../models/Event');
+const { notifyEventJoined } = require('../utils/notification');
 
 // @desc  Create a new sport event/activity
 // @route POST /api/events
@@ -93,6 +94,10 @@ const joinEvent = async (req, res, next) => {
       event.status = 'full';
     }
     await event.save();
+
+    // Fire-and-forget: let the host know someone joined their match.
+    notifyEventJoined(event.host, req.user, event);
+
     res.json({ event });
   } catch (err) {
     next(err);
@@ -130,7 +135,12 @@ const updateEvent = async (req, res, next) => {
     if (title !== undefined) event.title = title;
     if (sport !== undefined) event.sport = sport;
     if (description !== undefined) event.description = description;
-    if (dateTime !== undefined) event.dateTime = dateTime;
+    if (dateTime !== undefined) {
+      event.dateTime = dateTime;
+      // A new start time means the old reminder is no longer valid — allow
+      // the reminder job to send a fresh one for the rescheduled time.
+      event.reminderSent = false;
+    }
     if (maxParticipants !== undefined) event.maxParticipants = maxParticipants;
     if (skillLevel !== undefined) event.skillLevel = skillLevel;
     if (location !== undefined) {
