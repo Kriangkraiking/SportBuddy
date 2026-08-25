@@ -1,0 +1,46 @@
+/* src/pages/styles/HomePage.css */
+
+.home-container {
+  text-align: center;
+  padding: 50px;
+  font-family: sans-serif;
+}
+
+.home-title {
+  color: #151414;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  font-size: 16px;
+  margin-top: 20px;
+  cursor: pointer;
+  background-color: #ff5722; /* สีส้มสไตล์แอปออกกำลังกาย */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #e64a19; /* สีเข้มขึ้นเวลานำเมาส์ไปชี้ */
+}
+/* src/pages/styles/Homepage.css */
+
+/* ทำให้การ์ดมีมุมโค้งมนและเตรียมพร้อมสำหรับแอนิเมชัน */
+.dashboard-card {
+  border-radius: 12px !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* เอฟเฟกต์เมื่อเอาเมาส์ไปชี้ที่การ์ด: ให้การ์ดลอยขึ้นนิดหน่อยและเงาเข้มขึ้น */
+.dashboard-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1) !important;
+  cursor: default;
+}
+
+/* ปรับฟอนต์ให้ดูหนักแน่นขึ้นตรงหัวข้อ */
+.fw-bold {
+  font-weight: 700;
+}

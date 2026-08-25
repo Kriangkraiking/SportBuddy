@@ -7,7 +7,8 @@ const notificationSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     type: {
       type: String,
-      enum: ['friend_request', 'friend_accepted', 'event_joined', 'event_reminder'],
+      // ➕ เพิ่ม: 'buddy_matched' สำหรับระบบปัดหาคู่กีฬาแบบ Tinder เมื่อทั้งสองฝ่ายปัดขวาให้กัน
+      enum: ['friend_request', 'friend_accepted', 'event_joined', 'event_reminder', 'buddy_matched'],
       required: true,
     },
     title: { type: String, required: true },

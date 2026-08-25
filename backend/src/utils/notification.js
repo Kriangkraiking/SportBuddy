@@ -39,6 +39,16 @@ const notifyFriendAccepted = (toUserId, fromUser) =>
     message: `${fromUser.name} ตอบรับคำขอเป็นเพื่อนของคุณแล้ว`,
   });
 
+// ➕ เพิ่ม: แจ้งเตือนเมื่อปัดหาคู่กีฬาแบบ Tinder แล้วทั้งสองฝ่ายปัดขวาให้กัน (mutual match)
+const notifyBuddyMatched = (toUserId, otherUser, sport) =>
+  createNotification({
+    user: toUserId,
+    fromUser: otherUser._id,
+    type: 'buddy_matched',
+    title: 'จับคู่กีฬาสำเร็จ!',
+    message: `คุณกับ ${otherUser.name} จับคู่เล่น${sport}กันแล้ว ไปนัดกันได้เลย`,
+  });
+
 // --- Events --------------------------------------------------------------
 
 const notifyEventJoined = (hostId, joiner, event) =>
@@ -64,6 +74,7 @@ module.exports = {
   createNotification,
   notifyFriendRequest,
   notifyFriendAccepted,
+  notifyBuddyMatched,
   notifyEventJoined,
   notifyEventReminder,
 };

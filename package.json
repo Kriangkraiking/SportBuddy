@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "bootstrap": "^5.3.8",
     "mongodb": "^7.5.0",
-    "mongoose": "^9.7.4"
+    "mongoose": "^9.7.4",
+    "react-bootstrap": "^2.10.10"
   }
 }
