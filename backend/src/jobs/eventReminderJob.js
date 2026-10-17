@@ -2,7 +2,9 @@ const Event = require('../models/Event');
 const { notifyEventReminder } = require('../utils/notification');
 
 // How far ahead of an event's start time we send the "starting soon" ping.
-const REMINDER_WINDOW_MINUTES = 60;
+// ✏️ แก้ไข: เดิม 60 นาที ผู้ใช้ขอให้แจ้งเตือนผู้เข้าร่วมทุกคนก่อนกิจกรรมเริ่ม 2 ชั่วโมง (เช็คทุก 5 นาที เลยจะยิง
+// ภายในช่วง ~115-120 นาทีก่อนเริ่ม) กิจกรรมที่สร้างไว้ใกล้เวลาเริ่มน้อยกว่า 2 ชม. จะถูกเตือนทันทีรอบเช็คถัดไป
+const REMINDER_WINDOW_MINUTES = 120;
 // How often we check for events entering that window.
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 

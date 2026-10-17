@@ -8,7 +8,19 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       // ➕ เพิ่ม: 'buddy_matched' สำหรับระบบปัดหาคู่กีฬาแบบ Tinder เมื่อทั้งสองฝ่ายปัดขวาให้กัน
-      enum: ['friend_request', 'friend_accepted', 'event_joined', 'event_reminder', 'buddy_matched'],
+      // ➕ เพิ่ม: 'review_received' สำหรับระบบรีวิวหลังกิจกรรมจบ
+      // ➕ เพิ่ม: 'event_join_requested' (ไปหา host ตอนมีคนขอเข้าร่วม), 'event_join_approved' (ไปหาผู้เล่นตอน host อนุมัติ)
+      // เก็บ 'event_joined' เดิมไว้เผื่อมี Notification เก่าในฐานข้อมูลอยู่แล้ว แต่โค้ดใหม่ไม่สร้างชนิดนี้เพิ่มอีกแล้ว
+      enum: [
+        'friend_request',
+        'friend_accepted',
+        'event_joined',
+        'event_reminder',
+        'buddy_matched',
+        'review_received',
+        'event_join_requested',
+        'event_join_approved',
+      ],
       required: true,
     },
     title: { type: String, required: true },

@@ -1,5 +1,7 @@
 const Event = require('../models/Event');
-const { notifyEventJoined } = require('../utils/notification');
+const User = require('../models/User');
+// ✏️ แก้ไข: join ต้องรอ host อนุมัติแล้ว เปลี่ยนมาใช้ notifyEventJoinRequested/notifyEventJoinApproved แทน
+const { notifyEventJoinRequested, notifyEventJoinApproved } = require('../utils/notification');
 
 // @desc  Create a new sport event/activity
 // @route POST /api/events
@@ -67,7 +69,9 @@ const getEvent = async (req, res, next) => {
   try {
     const event = await Event.findById(req.params.id)
       .populate('host', 'name avatar')
-      .populate('participants', 'name avatar');
+      .populate('participants', 'name avatar')
+      // ➕ เพิ่ม: host ต้องเห็นรายชื่อคนที่รออนุมัติอยู่ด้วย ถึงจะกดอนุมัติ/ปฏิเสธได้จากหน้ารายละเอียดกิจกรรม
+      .populate('pendingParticipants', 'name avatar');
     if (!event) return res.status(404).json({ message: 'Event not found' });
     res.json({ event });
   } catch (err) {
@@ -75,28 +79,39 @@ const getEvent = async (req, res, next) => {
   }
 };
 
-// @desc  Join an event
+// ✏️ แก้ไข: เดิม join แล้วเข้าร่วมทันที ตอนนี้ต้องรอ host กดอนุมัติก่อน — join แค่ย้ายไปคิว pendingParticipants
+// ไม่กระทบ maxParticipants จนกว่าจะถูกอนุมัติจริง (ดู approveJoinRequest ด้านล่าง)
+// @desc  Request to join an event (waits for host approval)
 // @route POST /api/events/:id/join
 const joinEvent = async (req, res, next) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
+    if (String(event.host) === String(req.user._id)) {
+      return res.status(400).json({ message: 'คุณเป็นเจ้าของกิจกรรมนี้อยู่แล้ว' });
+    }
     if (event.participants.some((p) => String(p) === String(req.user._id))) {
-      return res.status(400).json({ message: 'Already joined' });
+      return res.status(400).json({ message: 'เข้าร่วมกิจกรรมนี้อยู่แล้ว' });
+    }
+    if (event.pendingParticipants.some((p) => String(p) === String(req.user._id))) {
+      return res.status(400).json({ message: 'ส่งคำขอเข้าร่วมไปแล้ว รอผู้จัดอนุมัติ' });
     }
     if (event.participants.length >= event.maxParticipants) {
       return res.status(400).json({ message: 'Event is full' });
     }
 
-    event.participants.push(req.user._id);
-    if (event.participants.length >= event.maxParticipants) {
-      event.status = 'full';
+    // ➕ เพิ่ม: ถ้าเจ้าของกิจกรรมเคยบล็อกเราไว้ (ระบบบล็อกส่วนตัว) เข้าร่วมกิจกรรมของเขาไม่ได้อีก
+    const host = await User.findById(event.host).select('blockedUsers');
+    if (host?.blockedUsers.some((id) => String(id) === String(req.user._id))) {
+      return res.status(403).json({ message: 'คุณถูกเจ้าของกิจกรรมนี้บล็อกไว้ ไม่สามารถเข้าร่วมได้' });
     }
+
+    event.pendingParticipants.push(req.user._id);
     await event.save();
 
-    // Fire-and-forget: let the host know someone joined their match.
-    notifyEventJoined(event.host, req.user, event);
+    // Fire-and-forget: let the host know someone wants to join their match.
+    notifyEventJoinRequested(event.host, req.user, event);
 
     res.json({ event });
   } catch (err) {
@@ -104,16 +119,83 @@ const joinEvent = async (req, res, next) => {
   }
 };
 
-// @desc  Leave an event
+// ✏️ แก้ไข: รองรับทั้ง "ยกเลิกคำขอที่ยังรออนุมัติ" (ยังอยู่แค่ pendingParticipants) และ
+// "ออกจากกิจกรรมที่เข้าร่วมแล้วจริง" (อยู่ใน participants) — ใช้ปุ่มเดียวกันในแอปได้เลย
+// @desc  Leave an event, or cancel a pending join request
 // @route POST /api/events/:id/leave
 const leaveEvent = async (req, res, next) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
+    event.pendingParticipants = event.pendingParticipants.filter((p) => String(p) !== String(req.user._id));
     event.participants = event.participants.filter((p) => String(p) !== String(req.user._id));
-    event.status = 'open';
+    if (event.status !== 'cancelled' && event.status !== 'completed') {
+      event.status = 'open';
+    }
     await event.save();
+    res.json({ event });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ➕ เพิ่ม: host อนุมัติคำขอเข้าร่วม — ย้ายจาก pendingParticipants ไป participants จริง แล้วแจ้งเตือนผู้เล่น
+// @desc  Approve a pending join request (host only)
+// @route POST /api/events/:id/approve/:userId
+const approveJoinRequest = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    if (String(event.host) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'เฉพาะเจ้าของกิจกรรมเท่านั้นที่อนุมัติคำขอเข้าร่วมได้' });
+    }
+
+    const { userId } = req.params;
+    if (!event.pendingParticipants.some((p) => String(p) === userId)) {
+      return res.status(404).json({ message: 'ไม่พบคำขอเข้าร่วมนี้ (อาจถูกยกเลิกไปแล้ว)' });
+    }
+    if (event.participants.length >= event.maxParticipants) {
+      return res.status(400).json({ message: 'กิจกรรมเต็มแล้ว ไม่สามารถอนุมัติเพิ่มได้' });
+    }
+
+    event.pendingParticipants = event.pendingParticipants.filter((p) => String(p) !== userId);
+    event.participants.push(userId);
+    if (event.participants.length >= event.maxParticipants) {
+      event.status = 'full';
+    }
+    await event.save();
+    await event.populate('host', 'name avatar');
+    await event.populate('participants', 'name avatar');
+    await event.populate('pendingParticipants', 'name avatar');
+
+    // Fire-and-forget: let the player know they're approved.
+    notifyEventJoinApproved(userId, req.user, event);
+
+    res.json({ event });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ➕ เพิ่ม: host ปฏิเสธคำขอเข้าร่วม — ไม่แจ้งเตือนผู้เล่น (เหมือน pattern เดิมของ BuddyRequest ที่แจ้งแค่ตอน accept)
+// @desc  Decline a pending join request (host only)
+// @route POST /api/events/:id/decline/:userId
+const declineJoinRequest = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    if (String(event.host) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'เฉพาะเจ้าของกิจกรรมเท่านั้นที่ปฏิเสธคำขอเข้าร่วมได้' });
+    }
+
+    const { userId } = req.params;
+    event.pendingParticipants = event.pendingParticipants.filter((p) => String(p) !== userId);
+    await event.save();
+    await event.populate('host', 'name avatar');
+    await event.populate('participants', 'name avatar');
+    await event.populate('pendingParticipants', 'name avatar');
+
     res.json({ event });
   } catch (err) {
     next(err);
@@ -166,6 +248,30 @@ const updateEvent = async (req, res, next) => {
   }
 };
 
+// ➕ เพิ่ม: จบกิจกรรม (host กดเอง) ปลดล็อกให้ผู้จัด/ผู้เข้าร่วมรีวิวกันได้ (ดู reviewController)
+// @desc  Mark an event as completed (host only)
+// @route POST /api/events/:id/complete
+const completeEvent = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    if (String(event.host) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'เฉพาะเจ้าของกิจกรรมเท่านั้นที่จบกิจกรรมได้' });
+    }
+    if (event.status === 'cancelled') {
+      return res.status(400).json({ message: 'กิจกรรมนี้ถูกยกเลิกไปแล้ว' });
+    }
+
+    event.status = 'completed';
+    // ✏️ แก้ไข: บันทึกเวลาจบกิจกรรมไว้ ให้ eventCleanupJob นับ 5 นาทีจากจุดนี้แล้วลบกิจกรรมทิ้งจริง
+    event.completedAt = new Date();
+    await event.save();
+    res.json({ event });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc  Delete an event (host only)
 // @route DELETE /api/events/:id
 const deleteEvent = async (req, res, next) => {
@@ -189,6 +295,9 @@ module.exports = {
   getEvent,
   joinEvent,
   leaveEvent,
+  approveJoinRequest,
+  declineJoinRequest,
   updateEvent,
+  completeEvent,
   deleteEvent,
 };

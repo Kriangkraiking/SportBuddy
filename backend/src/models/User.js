@@ -39,6 +39,12 @@ const userSchema = new mongoose.Schema(
       city: { type: String, default: '' },
       address: { type: String, default: '' },
     },
+    // ➕ เพิ่ม: รายชื่อคนที่ผู้ใช้คนนี้บล็อกไว้ (เช่น host บล็อกผู้เล่นที่มีพฤติกรรมไม่เหมาะสม)
+    // ผลคือคนที่ถูกบล็อกเข้าร่วม event ในอนาคตของ host คนนี้ไม่ได้อีก — เป็นการบล็อกส่วนตัว ไม่เกี่ยวกับระบบแอดมิน
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    // ➕ เพิ่ม: บทบาทผู้ใช้ — ต้องเป็น 'admin' เท่านั้นถึงจะเข้าเว็บแอดมินได้ (ดู middleware/admin.js)
+    // ไม่มี endpoint ให้ self-promote เป็น admin ได้ ต้องตั้งเองผ่าน MongoDB โดยตรงเท่านั้น
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
   },
   { timestamps: true }
 );
@@ -82,6 +88,8 @@ userSchema.methods.toPublicJSON = function () {
     bio: this.bio,
     sports: this.sports,
     location: this.location,
+    // ➕ เพิ่ม: ต้องส่ง role กลับไปด้วย ไม่งั้นฝั่งเว็บแอดมินไม่รู้ว่า user ที่ login เป็นแอดมินหรือเปล่า
+    role: this.role,
   };
 };
 

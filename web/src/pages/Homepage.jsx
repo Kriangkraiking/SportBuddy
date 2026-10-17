@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
     Navbar,
     Container,
@@ -12,10 +11,14 @@ import {
     Card,
     Spinner
 } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+// ✏️ แก้ไข: ใช้ api client กลางแทน axios ตรงๆ + hardcode URL เดิม — client นี้แนบ token ให้อัตโนมัติ
+import client from '../api/client';
+import { clearSession } from '../utils/auth';
 import './styles/Homepage.css';
 
 function HomePage() {
+    const navigate = useNavigate();
     const [dashboardData, setDashboardData] = useState({
         totalUsers: 0,
         activeMatches: 0,
@@ -29,7 +32,7 @@ function HomePage() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/api/dashboard');
+                const response = await client.get('/dashboard');
 
                 console.log("ข้อมูลที่ดึงมาได้:", response.data);
 
@@ -70,12 +73,22 @@ function HomePage() {
                                 {/* หน้า User Management ชี้ไปที่ /users */}
                                 <Nav.Link as={Link} to="/users">User Management</Nav.Link>
 
-                                <Nav.Link href="#fields">Facility Management</Nav.Link>
+                                {/* ✏️ แก้ไข: เดิม href="#fields" เป็นลิงก์เปล่า ตอนนี้ชี้ไปหน้า Facility Management จริงแล้ว */}
+                                <Nav.Link as={Link} to="/facilities">Facility Management</Nav.Link>
                             </Nav>
                             <NavDropdown title="More" id="navbarScrollingDropdown">
                                 <NavDropdown.Item href="#settings">System Settings</NavDropdown.Item>
                                 <NavDropdown.Divider />
-                                <NavDropdown.Item href="#logout" className="text-danger">Logout</NavDropdown.Item>
+                                {/* ✏️ แก้ไข: เดิมเป็นลิงก์เปล่า #logout กดแล้วไม่มีอะไรเกิดขึ้น ตอนนี้เคลียร์ session จริงแล้วเด้งไป login */}
+                                <NavDropdown.Item
+                                    className="text-danger"
+                                    onClick={() => {
+                                        clearSession();
+                                        navigate('/login');
+                                    }}
+                                >
+                                    Logout
+                                </NavDropdown.Item>
                             </NavDropdown>
                         </Nav>
                         <Form className="d-flex">

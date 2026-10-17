@@ -49,17 +49,52 @@ const notifyBuddyMatched = (toUserId, otherUser, sport) =>
     message: `คุณกับ ${otherUser.name} จับคู่เล่น${sport}กันแล้ว ไปนัดกันได้เลย`,
   });
 
+// ➕ เพิ่ม: แจ้งเตือนเมื่อได้รับรีวิวจากกิจกรรมที่จบแล้ว
+const notifyReviewReceived = (toUserId, fromUser, event) =>
+  createNotification({
+    user: toUserId,
+    fromUser: fromUser._id,
+    event: event._id,
+    type: 'review_received',
+    title: 'มีรีวิวใหม่',
+    message: `${fromUser.name} รีวิวให้คุณจากกิจกรรม "${event.title}"`,
+  });
+
 // --- Events --------------------------------------------------------------
 
-const notifyEventJoined = (hostId, joiner, event) =>
+// ✏️ แก้ไข: เดิมยิงตอน "เข้าร่วมสำเร็จเลย" (join ทันที ไม่ต้องรออนุมัติ) ตอนนี้ join ต้องรอ host
+// อนุมัติก่อน เลยเปลี่ยนความหมาย/ข้อความเป็น "มีคนขอเข้าร่วม" แทน ยิงตอนกด join (ยังไม่ใช่ตอนเข้าร่วมสำเร็จจริง)
+const notifyEventJoinRequested = (hostId, requester, event) =>
   createNotification({
     user: hostId,
-    fromUser: joiner._id,
+    fromUser: requester._id,
     event: event._id,
-    type: 'event_joined',
-    title: 'มีคนเข้าร่วมกิจกรรม',
-    message: `${joiner.name} เข้าร่วม "${event.title}" ของคุณแล้ว`,
+    type: 'event_join_requested',
+    title: 'มีคนขอเข้าร่วมกิจกรรม',
+    message: `${requester.name} ขอเข้าร่วม "${event.title}" ของคุณ รอการอนุมัติจากคุณ`,
   });
+
+// ➕ เพิ่ม: แจ้งผู้เล่นตอน host อนุมัติคำขอเข้าร่วมแล้ว (นี่คือจุดที่ถือว่า "เข้าร่วมสำเร็จ" จริง)
+const notifyEventJoinApproved = (playerId, host, event) =>
+  createNotification({
+    user: playerId,
+    fromUser: host._id,
+    event: event._id,
+    type: 'event_join_approved',
+    title: 'ได้รับอนุมัติให้เข้าร่วมแล้ว',
+    message: `ผู้จัดกิจกรรม "${event.title}" อนุมัติให้คุณเข้าร่วมแล้ว`,
+  });
+
+// ✏️ แก้ไข: เตือนก่อนเริ่ม 2 ชั่วโมงแล้ว ข้อความ "ประมาณ 120 นาที" อ่านยาก เลยแปลงเป็น ชั่วโมง/นาที
+// และปัดเป็นช่วงละ 5 นาที (job เช็คทุก 5 นาที เวลาที่เหลือจริงจึงเป็น ~115-120 → แสดง "2 ชั่วโมง")
+const formatTimeUntil = (minutes) => {
+  const rounded = Math.max(5, Math.round(minutes / 5) * 5);
+  const hours = Math.floor(rounded / 60);
+  const mins = rounded % 60;
+  if (hours > 0 && mins > 0) return `${hours} ชั่วโมง ${mins} นาที`;
+  if (hours > 0) return `${hours} ชั่วโมง`;
+  return `${mins} นาที`;
+};
 
 const notifyEventReminder = (userId, event, minutesUntil) =>
   createNotification({
@@ -67,7 +102,7 @@ const notifyEventReminder = (userId, event, minutesUntil) =>
     event: event._id,
     type: 'event_reminder',
     title: 'ใกล้ถึงเวลากิจกรรมแล้ว',
-    message: `"${event.title}" จะเริ่มในอีกประมาณ ${minutesUntil} นาที`,
+    message: `"${event.title}" จะเริ่มในอีกประมาณ ${formatTimeUntil(minutesUntil)}`,
   });
 
 module.exports = {
@@ -75,6 +110,8 @@ module.exports = {
   notifyFriendRequest,
   notifyFriendAccepted,
   notifyBuddyMatched,
-  notifyEventJoined,
+  notifyReviewReceived,
+  notifyEventJoinRequested,
+  notifyEventJoinApproved,
   notifyEventReminder,
 };
